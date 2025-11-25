@@ -1,0 +1,7 @@
+{
+  "name": "MyHome",
+  "description": "A dark-themed personal portfolio showcasing apps, photography, and thoughts with geospatial context.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

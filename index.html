@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Infini Portfolio</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              background: "hsl(var(--background))",
+              foreground: "hsl(var(--foreground))",
+              card: "hsl(var(--card))",
+              "card-foreground": "hsl(var(--card-foreground))",
+              primary: "hsl(var(--primary))",
+              "primary-foreground": "hsl(var(--primary-foreground))",
+              secondary: "hsl(var(--secondary))",
+              "secondary-foreground": "hsl(var(--secondary-foreground))",
+              muted: "hsl(var(--muted))",
+              "muted-foreground": "hsl(var(--muted-foreground))",
+              accent: "hsl(var(--accent))",
+              "accent-foreground": "hsl(var(--accent-foreground))",
+              border: "hsl(var(--border))",
+              input: "hsl(var(--input))",
+              ring: "hsl(var(--ring))",
+            },
+            borderRadius: {
+              lg: "var(--radius)",
+              md: "calc(var(--radius) - 2px)",
+              sm: "calc(var(--radius) - 4px)",
+            },
+            animation: {
+              "accordion-down": "accordion-down 0.2s ease-out",
+              "accordion-up": "accordion-up 0.2s ease-out",
+            },
+            keyframes: {
+              "accordion-down": {
+                from: { height: "0" },
+                to: { height: "var(--radix-accordion-content-height)" },
+              },
+              "accordion-up": {
+                from: { height: "var(--radix-accordion-content-height)" },
+                to: { height: "0" },
+              },
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      :root {
+        --background: 240 10% 3.9%;
+        --foreground: 0 0% 98%;
+        --card: 240 10% 3.9%;
+        --card-foreground: 0 0% 98%;
+        --primary: 263.4 70% 50.4%;
+        --primary-foreground: 210 40% 98%;
+        --secondary: 240 3.7% 15.9%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 240 3.7% 15.9%;
+        --muted-foreground: 240 5% 64.9%;
+        --accent: 240 3.7% 15.9%;
+        --accent-foreground: 0 0% 98%;
+        --border: 240 3.7% 15.9%;
+        --input: 240 3.7% 15.9%;
+        --ring: 240 4.9% 83.9%;
+        --radius: 0.5rem;
+      }
+      body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        font-family: 'Inter', sans-serif;
+      }
+      /* Leaflet map z-index fix for sticky headers */
+      .leaflet-container {
+        z-index: 0; 
+        background: #09090b;
+        font-family: 'Inter', sans-serif;
+      }
+      
+      /* --- HOLOGRAPHIC MAP STYLES --- */
+
+      /* Radar Beacons */
+      .radar-emitter {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .radar-core {
+        width: 12px;
+        height: 12px;
+        background: #a78bfa; /* Violet-400 */
+        border-radius: 50%;
+        box-shadow: 0 0 10px #8b5cf6, 0 0 20px #8b5cf6;
+        z-index: 2;
+      }
+      
+      .radar-wave {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        border: 2px solid #8b5cf6;
+        opacity: 0;
+        animation: radar-ping 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+      }
+      
+      .radar-wave:nth-child(2) {
+        animation-delay: 1s;
+      }
+
+      @keyframes radar-ping {
+        0% { width: 100%; height: 100%; opacity: 0.8; border-width: 2px; }
+        100% { width: 400%; height: 400%; opacity: 0; border-width: 0px; }
+      }
+
+      /* Animated Flight Paths */
+      .connection-line {
+        stroke-dasharray: 6 12;
+        animation: dash-flow 20s linear infinite;
+        stroke: #8b5cf6;
+        stroke-opacity: 0.4;
+        filter: drop-shadow(0 0 2px #8b5cf6);
+      }
+      
+      @keyframes dash-flow {
+        to {
+          stroke-dashoffset: -1000;
+        }
+      }
+
+      /* Popup Styling override */
+      .leaflet-popup-content-wrapper {
+        background: #18181b; /* zinc-900 */
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        color: white;
+        padding: 0;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      }
+      .leaflet-popup-content {
+        margin: 0 !important;
+        width: 100% !important;
+      }
+      .leaflet-popup-tip {
+        background: #18181b;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-top: none;
+        border-left: none;
+      }
+      .leaflet-container a.leaflet-popup-close-button {
+        color: white;
+        top: 8px;
+        right: 8px;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        opacity: 0.8;
+      }
+      .leaflet-container a.leaflet-popup-close-button:hover {
+        color: #a78bfa;
+        opacity: 1;
+      }
+    </style>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+    <style>
+      .leaflet-popup-content-wrapper {
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        background: #18181b !important;
+      }
+      .leaflet-popup-tip {
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        background: #18181b !important;
+      }
+    </style>
+     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+{
+  "imports": {
+    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^5.0.0",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "tailwind-merge": "https://aistudiocdn.com/tailwind-merge@^3.4.0",
+    "leaflet/": "https://aistudiocdn.com/leaflet@^1.9.4/",
+    "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4",
+    "@tanstack/react-query": "https://aistudiocdn.com/@tanstack/react-query@^5.90.10",
+    "clsx": "https://aistudiocdn.com/clsx@^2.1.1",
+    "@radix-ui/react-dialog": "https://aistudiocdn.com/@radix-ui/react-dialog@^1.1.6",
+    "react-markdown": "https://esm.sh/react-markdown@9.0.1?bundle"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
