@@ -39,7 +39,7 @@ const AnimatedRoutes = () => {
         {/* Admin Routes */}
         <Route path="/admin/login" element={<Login />} />
         <Route path="/admin" element={<AdminLayout />}>
-           <Route path="dashboard" element={<div className="text-2xl font-bold">Welcome back, Infini.</div>} />
+           <Route index element={<AdminBlog />} />
            <Route path="blog" element={<AdminBlog />} />
            <Route path="blog/:id" element={<BlogEditor />} />
         </Route>

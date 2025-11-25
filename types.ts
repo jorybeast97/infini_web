@@ -24,6 +24,8 @@ export interface BlogPost {
   readTime: string;
   status?: 'published' | 'draft';
   partners?: string[];
+  updatedAt?: string;
+  createdAt?: string;
 }
 
 export interface Photo {

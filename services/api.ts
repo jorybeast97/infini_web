@@ -7,7 +7,8 @@ const DB_KEYS = {
   POSTS: 'infini_posts',
   PHOTOS: 'infini_photos',
   AUTHORS: 'infini_authors',
-  TOKEN: 'infini_token'
+  TOKEN: 'infini_token',
+  USER: 'infini_user'
 };
 
 const getFromStorage = <T>(key: string, defaultData: T): T => {
@@ -25,20 +26,75 @@ const saveToStorage = (key: string, data: any) => {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const API_LOCAL = (import.meta as any).env?.VITE_API_LOCAL === 'true';
+const API_ORIGIN = API_LOCAL ? 'http://localhost:3000' : 'https://infini-api.vercel.app';
+const API_BASE = `${API_ORIGIN}/api`;
+
 export const api = {
   // Public Data
   getApps: async (): Promise<AppProject[]> => {
     await delay(600);
     return getFromStorage(DB_KEYS.APPS, MOCK_APPS);
   },
+  getUsers: async (): Promise<Array<{id:string; userName:string; nickName?:string; role?:string; avatar?:string}>> => {
+    const res = await fetch(`${API_BASE}/users/list`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 1, limit: 100 })
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const data = json?.data || [];
+    return data.map((u: any) => ({ id: u.id, userName: u.userName, nickName: u.nickName, role: u.role, avatar: u.avatar }));
+  },
   getPosts: async (): Promise<BlogPost[]> => {
-    await delay(800);
-    return getFromStorage(DB_KEYS.POSTS, MOCK_POSTS);
+    const res = await fetch(`${API_BASE}/posts/list`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 1, limit: 100, sort: 'date:desc' })
+    });
+    if (!res.ok) {
+      // fallback to mock for graceful degradation
+      return getFromStorage(DB_KEYS.POSTS, MOCK_POSTS);
+    }
+    const json = await res.json();
+    const data = (json.data || json) as any[];
+    return data.map(p => ({
+      id: p.id,
+      title: p.title,
+      excerpt: p.excerpt,
+      content: p.content,
+      // backend uses int64 timestamp seconds; format to YYYY-MM-DD
+      date: p.date ? new Date(p.date * 1000).toISOString().slice(0,10) : '',
+      readTime: p.readTime,
+      location: p.location || null,
+      status: p.status,
+      partners: p.partners || [],
+      updatedAt: p.updatedAt ? new Date(p.updatedAt * 1000).toISOString().replace('T', ' ').slice(0,16) : undefined,
+      createdAt: p.createdAt ? new Date(p.createdAt * 1000).toISOString().replace('T', ' ').slice(0,16) : undefined,
+    })) as BlogPost[];
   },
   getPostById: async (id: string): Promise<BlogPost | undefined> => {
-    await delay(400);
-    const posts = getFromStorage(DB_KEYS.POSTS, MOCK_POSTS) as BlogPost[];
-    return posts.find(p => p.id === id);
+    const res = await fetch(`${API_BASE}/posts/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    if (!res.ok) return undefined;
+    const wrapper = await res.json();
+    const p = wrapper?.data || wrapper;
+    const bp: BlogPost = {
+      id: p.id,
+      title: p.title,
+      excerpt: p.excerpt,
+      content: p.content || '',
+      date: p.date ? new Date(p.date * 1000).toISOString().slice(0,10) : '',
+      readTime: p.readTime || '',
+      location: p.location || null,
+      status: p.status || 'draft',
+      partners: p.partners || []
+    };
+    return bp;
   },
   getPhotos: async (): Promise<Photo[]> => {
     await delay(1000);
@@ -50,21 +106,62 @@ export const api = {
   },
 
   // Auth
-  login: async (username: string, password: string): Promise<{ token: string, user: string }> => {
-    await delay(1000);
-    // Case insensitive username check
-    if (username.toLowerCase() === 'admin' && password === 'password') {
-      const token = 'mock-jwt-token-' + Date.now();
-      localStorage.setItem(DB_KEYS.TOKEN, token);
-      return { token, user: 'Admin' };
+  login: async (username: string, password: string): Promise<{ token: string, user: any }> => {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Invalid credentials');
     }
-    throw new Error('Invalid credentials');
+    const data = await res.json();
+    if (data?.token) {
+      localStorage.setItem(DB_KEYS.TOKEN, data.token);
+    }
+    if (data?.user) {
+      localStorage.setItem(DB_KEYS.USER, JSON.stringify(data.user));
+    }
+    return { token: data?.token, user: data?.user };
+  },
+  registerUser: async (payload: { userName: string; password: string; nickName?: string; avatar?: string }): Promise<void> => {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Register failed');
+    }
   },
   logout: () => {
     localStorage.removeItem(DB_KEYS.TOKEN);
+    localStorage.removeItem(DB_KEYS.USER);
   },
   isAuthenticated: () => {
     return !!localStorage.getItem(DB_KEYS.TOKEN);
+  },
+
+  getCurrentUser: async (): Promise<any | null> => {
+    const cached = localStorage.getItem(DB_KEYS.USER);
+    return cached ? JSON.parse(cached) : null;
+  },
+
+  updateUser: async (id: string, payload: { nickName?: string; avatar?: string }): Promise<void> => {
+    const token = localStorage.getItem(DB_KEYS.TOKEN);
+    const res = await fetch(`${API_BASE}/users/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id, ...payload })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Update failed');
+    }
+    const u = await res.json();
+    localStorage.setItem(DB_KEYS.USER, JSON.stringify(u));
   },
 
   // Admin CRUD - Apps
@@ -88,21 +185,39 @@ export const api = {
 
   // Admin CRUD - Posts
   savePost: async (post: BlogPost): Promise<void> => {
-    await delay(500);
-    const posts = getFromStorage(DB_KEYS.POSTS, MOCK_POSTS) as BlogPost[];
-    const index = posts.findIndex(p => p.id === post.id);
-    if (index >= 0) {
-      posts[index] = post;
-    } else {
-      posts.push({ ...post, id: Date.now().toString() });
+    const token = localStorage.getItem(DB_KEYS.TOKEN);
+    const body = {
+      id: post.id,
+      title: post.title,
+      excerpt: post.excerpt,
+      content: post.content,
+      date: post.date ? Math.floor(Date.parse(post.date)/1000) : Math.floor(Date.now()/1000),
+      readTime: post.readTime,
+      location: post.location,
+      status: post.status || 'draft',
+      partners: post.partners || []
+    };
+    const res = await fetch(`${API_BASE}/posts/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      body: JSON.stringify({ post: body })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Save failed');
     }
-    saveToStorage(DB_KEYS.POSTS, posts);
   },
   deletePost: async (id: string): Promise<void> => {
-    await delay(500);
-    const posts = getFromStorage(DB_KEYS.POSTS, MOCK_POSTS) as BlogPost[];
-    const filtered = posts.filter(p => p.id !== id);
-    saveToStorage(DB_KEYS.POSTS, filtered);
+    const token = localStorage.getItem(DB_KEYS.TOKEN);
+    const res = await fetch(`${API_BASE}/posts/delete`, {
+      method: 'POST',
+      headers: { Authorization: token ? `Bearer ${token}` : '' }
+      , body: JSON.stringify({ id })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Delete failed');
+    }
   },
 
   // Admin CRUD - Photos

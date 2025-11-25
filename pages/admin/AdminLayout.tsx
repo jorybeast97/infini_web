@@ -1,7 +1,10 @@
 import React, { useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
-import { LayoutGrid, FileText, Image, LogOut, Home } from 'lucide-react';
+import { FileText, Image, LogOut, Home, User as UserIcon, Edit } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import { cn } from '../../components/ui/utils';
 
 const AdminLayout = () => {
@@ -14,6 +17,13 @@ const AdminLayout = () => {
       navigate('/admin/login');
     }
   }, [navigate]);
+
+  const [currentUser, setCurrentUser] = React.useState<any>(() => {
+    try { const s = localStorage.getItem('infini_user'); return s ? JSON.parse(s) : null } catch { return null }
+  });
+  useEffect(() => {
+    (async () => { const u = await api.getCurrentUser(); if (u) setCurrentUser(u); })();
+  }, []);
 
   const handleLogout = () => {
     api.logout();
@@ -44,7 +54,6 @@ const AdminLayout = () => {
         </div>
         
         <nav className="flex-1 p-4 space-y-2">
-          <NavItem to="/admin/dashboard" icon={LayoutGrid} label="Dashboard" />
           <NavItem to="/admin/blog" icon={FileText} label="Blog" />
           <div className="h-px bg-white/10 my-4" />
           <NavLink to="/" className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-white text-sm font-medium transition-colors">
@@ -53,7 +62,44 @@ const AdminLayout = () => {
           </NavLink>
         </nav>
 
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-white/10 space-y-3">
+          {currentUser && (
+            <div className="flex items-center gap-3 px-4 py-3 w-full rounded-lg bg-zinc-900/50">
+              {currentUser.avatar ? (
+                <img src={currentUser.avatar} alt="avatar" className="w-8 h-8 rounded-full object-cover" />
+              ) : (
+                <UserIcon size={20} className="text-muted-foreground" />
+              )}
+              <div className="text-xs">
+                <div className="font-semibold">{currentUser.nickName || currentUser.userName}</div>
+                <div className="text-muted-foreground">{currentUser.userName}</div>
+              </div>
+              <div className="ml-auto">
+                <Dialog>
+                  <DialogTrigger className="text-primary hover:underline text-xs flex items-center gap-1"><Edit size={14}/> Edit</DialogTrigger>
+                  <DialogContent className="bg-zinc-900 border-white/10">
+                    <DialogHeader>
+                      <DialogTitle>Edit Profile</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="nick">Nickname</Label>
+                        <Input id="nick" defaultValue={currentUser.nickName || ''} onChange={(e)=>setCurrentUser({...currentUser, nickName: e.target.value})} className="bg-zinc-950 border-white/10" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="avatar">Avatar URL</Label>
+                        <Input id="avatar" defaultValue={currentUser.avatar || ''} onChange={(e)=>setCurrentUser({...currentUser, avatar: e.target.value})} className="bg-zinc-950 border-white/10" />
+                      </div>
+                      <button
+                        onClick={async ()=>{ await api.updateUser(currentUser.id, { nickName: currentUser.nickName, avatar: currentUser.avatar }); }}
+                        className="mt-2 px-3 py-2 rounded bg-primary text-white text-sm"
+                      >Save</button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          )}
           <button 
             onClick={handleLogout}
             className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium"

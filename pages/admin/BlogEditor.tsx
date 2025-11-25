@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
+import { Spinner } from '../../components/ui/spinner';
 import { api } from '../../services/api';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -31,7 +32,7 @@ const BlogEditor = () => {
     enabled: isEditing
   });
 
-  const { data: authors } = useQuery({ queryKey: ['authors'], queryFn: api.getAuthors });
+  const { data: users } = useQuery({ queryKey: ['users'], queryFn: api.getUsers });
   const { data: allPosts } = useQuery({ queryKey: ['posts'], queryFn: api.getPosts });
   const { data: allPhotos } = useQuery({ queryKey: ['photos'], queryFn: api.getPhotos });
 
@@ -129,7 +130,12 @@ const BlogEditor = () => {
     }
   };
 
-  if (isEditing && isLoading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading editor...</div>;
+  if (isEditing && isLoading) return (
+    <div className="flex h-screen items-center justify-center gap-3 text-muted-foreground">
+      <Spinner />
+      <span>Loading editor...</span>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full w-full bg-background"> 
@@ -397,7 +403,7 @@ const BlogEditor = () => {
                  </h3>
                  <PartnerSelector 
                     partners={formData.partners || []}
-                    allAuthors={authors || []}
+                    allUsers={users || []}
                     onChange={(newPartners) => handleChange('partners', newPartners)}
                  />
               </div>
@@ -432,13 +438,14 @@ const ToolbarBtn = ({ icon: Icon, onClick, tooltip }: { icon: any, onClick: () =
   </button>
 );
 
-const PartnerSelector = ({ partners, allAuthors, onChange }: { partners: string[], allAuthors: Author[], onChange: (p: string[]) => void }) => {
+type UserBrief = { id: string; userName: string; nickName?: string; role?: string; avatar?: string };
+const PartnerSelector = ({ partners, allUsers, onChange }: { partners: string[], allUsers: UserBrief[], onChange: (p: string[]) => void }) => {
    const [search, setSearch] = useState('');
    const [isOpen, setIsOpen] = useState(false);
    
-   const filtered = allAuthors.filter(a => 
-      a.name.toLowerCase().includes(search.toLowerCase()) && !partners.includes(a.id)
-   );
+  const filtered = allUsers.filter(u => 
+     ((u.nickName || u.userName || '').toLowerCase().includes(search.toLowerCase())) && !partners.includes(u.id)
+  );
 
    return (
       <div className="bg-zinc-950/50 border border-white/10 rounded-lg p-3 space-y-3">
@@ -446,12 +453,12 @@ const PartnerSelector = ({ partners, allAuthors, onChange }: { partners: string[
          {partners.length > 0 && (
             <div className="flex flex-wrap gap-2">
                {partners.map(pId => {
-                  const author = allAuthors.find(a => a.id === pId);
-                  if(!author) return null;
+                  const user = allUsers.find(u => u.id === pId);
+                  if(!user) return null;
                   return (
                      <Badge key={pId} variant="secondary" className="pl-1 pr-2 py-1 h-7 gap-1.5 bg-zinc-800 hover:bg-zinc-700 border-white/10 text-zinc-200">
-                        <img src={author.avatar} className="w-5 h-5 rounded-full object-cover" alt="" />
-                        {author.name}
+                        {user.avatar && <img src={user.avatar} className="w-5 h-5 rounded-full object-cover" alt="" />}
+                        {user.nickName || user.userName}
                         <button 
                            onClick={() => onChange(partners.filter(id => id !== pId))}
                            className="ml-1 text-zinc-500 hover:text-white"
@@ -482,20 +489,20 @@ const PartnerSelector = ({ partners, allAuthors, onChange }: { partners: string[
              {isOpen && (search || filtered.length > 0) && (
                 <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-white/10 rounded-md shadow-xl z-50 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                    {filtered.length > 0 ? (
-                      filtered.map(author => (
+                      filtered.map(user => (
                         <button 
-                           key={author.id}
-                           onMouseDown={() => { // Use onMouseDown to trigger before input blur
-                              onChange([...partners, author.id]);
+                          key={user.id}
+                          onMouseDown={() => { // Use onMouseDown to trigger before input blur
+                              onChange([...partners, user.id]);
                               setSearch('');
-                           }}
-                           className="flex items-center gap-3 w-full p-2.5 hover:bg-white/5 text-sm text-zinc-300 text-left transition-colors"
+                          }}
+                          className="flex items-center gap-3 w-full p-2.5 hover:bg-white/5 text-sm text-zinc-300 text-left transition-colors"
                         >
-                           <img src={author.avatar} className="w-6 h-6 rounded-full object-cover" alt="" />
-                           <div className="flex flex-col">
-                              <span className="font-medium text-xs">{author.name}</span>
-                              <span className="text-[10px] text-zinc-500">{author.role}</span>
-                           </div>
+                          {user.avatar && <img src={user.avatar} className="w-6 h-6 rounded-full object-cover" alt="" />}
+                          <div className="flex flex-col">
+                              <span className="font-medium text-xs">{user.nickName || user.userName}</span>
+                              <span className="text-[10px] text-zinc-500">{user.role || ''}</span>
+                          </div>
                         </button>
                       ))
                    ) : (

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -13,6 +14,8 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registerMode, setRegisterMode] = useState(false);
+  const [nickName, setNickName] = useState('');
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -29,10 +32,31 @@ const Login = () => {
     try {
       // Trim inputs to avoid whitespace issues
       await api.login(username.trim(), password.trim());
-      navigate('/admin/dashboard');
+      navigate('/admin');
     } catch (err) {
       console.error(err);
       setError('Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    if (!username.trim() || !password.trim()) {
+      setError('Please enter both username and password');
+      setLoading(false);
+      return;
+    }
+    try {
+      await api.registerUser({ userName: username.trim(), password: password.trim(), nickName: nickName.trim() });
+      await api.login(username.trim(), password.trim());
+      navigate('/admin');
+    } catch (err) {
+      console.error(err);
+      setError('Register failed');
     } finally {
       setLoading(false);
     }
@@ -51,7 +75,7 @@ const Login = () => {
           <CardDescription>Enter your credentials to access the dashboard</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={registerMode ? handleRegister : handleLogin} className="space-y-4 relative">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input 
@@ -82,21 +106,36 @@ const Login = () => {
                 </button>
               </div>
             </div>
+            {registerMode && (
+              <div className="space-y-2">
+                <Label htmlFor="nickname">Nickname</Label>
+                <Input
+                  id="nickname"
+                  placeholder=""
+                  value={nickName}
+                  onChange={(e) => { setNickName(e.target.value); setError(''); }}
+                  className="bg-zinc-950 border-white/10"
+                />
+              </div>
+            )}
             {error && <div className="text-red-400 text-sm text-center font-medium animate-pulse">{error}</div>}
             
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Authenticating...' : 'Sign In'}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2"><Spinner size={16} /> {registerMode ? 'Registering...' : 'Authenticating...'}</span>
+              ) : (
+                registerMode ? 'Create Account' : 'Sign In'
+              )}
             </Button>
+
+            <div className="text-center text-sm mt-2">
+              <button type="button" className="text-primary hover:underline" onClick={() => { setRegisterMode(!registerMode); setError(''); }}>
+                {registerMode ? 'Already have an account? Sign In' : 'No account? Create one'}
+              </button>
+            </div>
           </form>
 
-          {/* Helper for Demo */}
-          <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-lg text-center">
-            <p className="text-xs text-primary font-semibold mb-1 uppercase tracking-wide">Demo Credentials</p>
-            <div className="flex justify-center gap-4 text-sm text-zinc-300 font-mono">
-              <span>User: <span className="text-white">admin</span></span>
-              <span>Pass: <span className="text-white">password</span></span>
-            </div>
-          </div>
+          
         </CardContent>
       </Card>
     </div>
