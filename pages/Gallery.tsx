@@ -1,13 +1,70 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../services/api';
-import { MapPin, X } from 'lucide-react';
+import { MapPin, X, Loader2 } from 'lucide-react';
 import Map from '../components/Map';
 
 const Gallery: React.FC = () => {
   const { data: photos, isLoading } = useQuery({ queryKey: ['photos'], queryFn: api.getPhotos });
+  const { data: authors } = useQuery({ queryKey: ['authors'], queryFn: api.getAuthors });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const parseSizeFromUrl = (url: string) => {
+    const m = url.match(/picsum\.photos\/(\d+)\/(\d+)/);
+    if (!m) return 0.8;
+    const w = parseInt(m[1], 10);
+    const h = parseInt(m[2], 10);
+    if (!w || !h) return 0.8;
+    return h / w;
+  };
+
+  const addMoreDemoPhotos = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    const randomBetween = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const sizes = [
+      [600, 400],
+      [600, 600],
+      [600, 800],
+      [700, 500],
+      [800, 600],
+      [500, 700]
+    ];
+    for (let i = 0; i < 12; i++) {
+      const [w, h] = sizes[i % sizes.length];
+      const randomId = Date.now() + i;
+      const dayOffset = randomBetween(0, 365);
+      const date = new Date(Date.now() - dayOffset * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const authorPool = ['1', '2', '3'];
+      const photo = {
+        id: 'new',
+        url: `https://picsum.photos/${w}/${h}?random=${randomId}`,
+        caption: `Demo Photo ${randomId}`,
+        date,
+        location: { lat: 37.7749, lng: -122.4194, name: 'Demo Location' },
+        authorId: authorPool[i % authorPool.length]
+      };
+      await api.savePhoto(photo);
+    }
+    await queryClient.invalidateQueries({ queryKey: ['photos'] });
+    setLoadingMore(false);
+  };
+
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting && !loadingMore) {
+        addMoreDemoPhotos();
+      }
+    }, { rootMargin: '400px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadingMore, photos]);
 
   if (isLoading) return <div className="p-10 text-center">Loading visual memories...</div>;
 
@@ -22,7 +79,7 @@ const Gallery: React.FC = () => {
         Gallery
       </motion.h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="columns-1 md:columns-2 lg:columns-3 gap-x-4">
         {photos?.map((photo, i) => (
           <motion.div
             key={photo.id}
@@ -30,23 +87,55 @@ const Gallery: React.FC = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.05 }}
-            className="relative aspect-[4/5] rounded-xl overflow-hidden cursor-pointer group"
+            className="relative rounded-xl overflow-hidden cursor-pointer group break-inside-avoid mb-4 bg-zinc-900 border border-white/10"
             onClick={() => setSelectedId(photo.id)}
           >
-            <img 
-              src={photo.url} 
-              alt={photo.caption} 
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-              <p className="text-white font-medium">{photo.caption}</p>
-              <div className="flex items-center gap-1 text-white/70 text-xs mt-1">
+            {(() => {
+              const ratio = parseSizeFromUrl(photo.url);
+              return (
+                <div className="relative w-full" style={{ paddingTop: `${ratio * 100}%` }}>
+                  <img 
+                    src={photo.url} 
+                    alt={photo.caption} 
+                    loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </div>
+              );
+            })()}
+            <div className="p-4 bg-zinc-950/60">
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const a = authors?.find(x => x.id === photo.authorId);
+                  return (
+                    <>
+                      {a?.avatar && (
+                        <img src={a.avatar} alt={a.name} className="w-8 h-8 rounded-full object-cover" />
+                      )}
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{a?.name ?? 'Unknown Author'}</p>
+                        <p className="text-xs text-muted-foreground">{photo.date}</p>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+              <p className="text-sm mt-3">{photo.caption}</p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
                 <MapPin size={12} />
                 {photo.location.name}
               </div>
             </div>
           </motion.div>
         ))}
+      </div>
+      <div ref={loadMoreRef} className="h-16 flex items-center justify-center">
+        {loadingMore && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="animate-spin" size={18} />
+            正在加载更多...
+          </div>
+        )}
       </div>
 
       {/* Expanded View Modal */}

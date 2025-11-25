@@ -64,6 +64,7 @@ export const MOCK_PHOTOS: Photo[] = [
     caption: 'Sunset over the Golden Gate',
     date: '2024-03-10',
     location: { lat: 37.8199, lng: -122.4783, name: 'Golden Gate Bridge' },
+    authorId: '1',
   },
   {
     id: '2',
@@ -71,6 +72,7 @@ export const MOCK_PHOTOS: Photo[] = [
     caption: 'Neon streets of Shinjuku',
     date: '2023-11-15',
     location: { lat: 35.6909, lng: 139.7005, name: 'Shinjuku' },
+    authorId: '2',
   },
   {
     id: '3',
@@ -78,6 +80,7 @@ export const MOCK_PHOTOS: Photo[] = [
     caption: 'Coffee shop vibes in Berlin',
     date: '2023-08-05',
     location: { lat: 52.5200, lng: 13.4050, name: 'Berlin, Germany' },
+    authorId: '3',
   },
   {
     id: '4',
@@ -85,6 +88,7 @@ export const MOCK_PHOTOS: Photo[] = [
     caption: 'Hiking in the Swiss Alps',
     date: '2023-07-20',
     location: { lat: 46.8182, lng: 8.2275, name: 'Swiss Alps' },
+    authorId: '1',
   },
 ];
 

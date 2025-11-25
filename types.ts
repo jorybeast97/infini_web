@@ -32,6 +32,7 @@ export interface Photo {
   caption: string;
   location: Location;
   date: string;
+  authorId?: string;
 }
 
 export interface Author {
