@@ -20,6 +20,8 @@ const Gallery: React.FC = () => {
     if (!w || !h) return 0.8;
     return h / w;
   };
+  const [colCount, setColCount] = useState(3);
+  const [columns, setColumns] = useState<Array<Array<any>>>([[], [], []]);
 
   const addMoreDemoPhotos = async () => {
     if (loadingMore) return;
@@ -66,6 +68,49 @@ const Gallery: React.FC = () => {
     return () => observer.disconnect();
   }, [loadingMore, photos]);
 
+  useEffect(() => {
+    const onResize = () => {
+      const w = window.innerWidth;
+      const next = w < 768 ? 1 : w < 1024 ? 2 : 3;
+      setColCount(next);
+    };
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    if (!photos || photos.length === 0) {
+      setColumns(Array.from({ length: colCount }, () => []));
+      return;
+    }
+    setColumns((prev) => {
+      const existingIds = new Set(prev.flat().map((p) => p.id));
+      const newItems = photos.filter((p) => !existingIds.has(p.id));
+      let cols = prev;
+      if (prev.length !== colCount) {
+        cols = Array.from({ length: colCount }, () => []);
+        const heights = new Array(colCount).fill(0);
+        for (const p of photos) {
+          const r = parseSizeFromUrl(p.url);
+          const idx = heights.indexOf(Math.min(...heights));
+          cols[idx].push(p);
+          heights[idx] += r;
+        }
+        return cols;
+      }
+      if (newItems.length === 0) return prev;
+      const heights = prev.map((col) => col.reduce((sum, p) => sum + parseSizeFromUrl(p.url), 0));
+      for (const p of newItems) {
+        const r = parseSizeFromUrl(p.url);
+        const idx = heights.indexOf(Math.min(...heights));
+        cols[idx] = [...cols[idx], p];
+        heights[idx] += r;
+      }
+      return cols.map((c) => [...c]);
+    });
+  }, [photos, colCount]);
+
   if (isLoading) return <div className="p-10 text-center">Loading visual memories...</div>;
 
   const selectedPhoto = photos?.find(p => p.id === selectedId);
@@ -79,54 +124,58 @@ const Gallery: React.FC = () => {
         Gallery
       </motion.h1>
 
-      <div className="columns-1 md:columns-2 lg:columns-3 gap-x-4">
-        {photos?.map((photo, i) => (
-          <motion.div
-            key={photo.id}
-            layoutId={`photo-${photo.id}`}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.05 }}
-            className="relative rounded-xl overflow-hidden cursor-pointer group break-inside-avoid mb-4 bg-zinc-900 border border-white/10"
-            onClick={() => setSelectedId(photo.id)}
-          >
-            {(() => {
-              const ratio = parseSizeFromUrl(photo.url);
-              return (
-                <div className="relative w-full" style={{ paddingTop: `${ratio * 100}%` }}>
-                  <img 
-                    src={photo.url} 
-                    alt={photo.caption} 
-                    loading="lazy"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                </div>
-              );
-            })()}
-            <div className="p-4 bg-zinc-950/60">
-              <div className="flex items-center gap-3">
+      <div className="flex gap-4">
+        {columns.slice(0, colCount).map((col, ci) => (
+          <div key={`col-${ci}`} className="flex-1">
+            {col.map((photo, i) => (
+              <motion.div
+                key={photo.id}
+                layoutId={`photo-${photo.id}`}
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.02 }}
+                className="relative rounded-xl overflow-hidden cursor-pointer group mb-4 bg-zinc-900 border border-white/10"
+                onClick={() => setSelectedId(photo.id)}
+              >
                 {(() => {
-                  const a = authors?.find(x => x.id === photo.authorId);
+                  const ratio = parseSizeFromUrl(photo.url);
                   return (
-                    <>
-                      {a?.avatar && (
-                        <img src={a.avatar} alt={a.name} className="w-8 h-8 rounded-full object-cover" />
-                      )}
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{a?.name ?? 'Unknown Author'}</p>
-                        <p className="text-xs text-muted-foreground">{photo.date}</p>
-                      </div>
-                    </>
+                    <div className="relative w-full" style={{ paddingTop: `${ratio * 100}%` }}>
+                      <img 
+                        src={photo.url} 
+                        alt={photo.caption} 
+                        loading="lazy"
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </div>
                   );
                 })()}
-              </div>
-              <p className="text-sm mt-3">{photo.caption}</p>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
-                <MapPin size={12} />
-                {photo.location.name}
-              </div>
-            </div>
-          </motion.div>
+                <div className="p-4 bg-zinc-950/60">
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const a = authors?.find(x => x.id === photo.authorId);
+                      return (
+                        <>
+                          {a?.avatar && (
+                            <img src={a.avatar} alt={a.name} className="w-8 h-8 rounded-full object-cover" />
+                          )}
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{a?.name ?? 'Unknown Author'}</p>
+                            <p className="text-xs text-muted-foreground">{photo.date}</p>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <p className="text-sm mt-3">{photo.caption}</p>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                    <MapPin size={12} />
+                    {photo.location.name}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         ))}
       </div>
       <div ref={loadMoreRef} className="h-16 flex items-center justify-center">
